@@ -3,77 +3,13 @@ import telebot
 from telebot import types
 import datetime
 import os
-import pickle
+from my_functions import *
 
 bot = telebot.TeleBot(TOKEN)
 emptyPhoto = 'https://image.prntscr.com/image/kC8tDU8nRkOnJNd5d-TRjw.png'
 
-def get_user_state(user_id: int, refresh=False, states_path='states.pickle') -> str:
-    '''Возвращает состояние (тип ожидаемого сообщения от) пользователя, если ничего не ожидается, то состояние idle;
-    refresh нужен для сброса состояния, когда нужное сообщение принято'''
-    try:
-        with open(states_path, 'rb') as f:
-            states: dict = pickle.load(f)
-    except:
-        states = {}
 
-    if user_id in states:
-        state = states[user_id]
-    else:
-        state = 'idle'
-    
-    if refresh:
-        states[user_id] = 'idle'
-        with open(states_path, 'wb') as f:
-            pickle.dump(states, f)
-
-    return state
-
-def change_user_state(user_id: int, new_state: str, states_path='states.pickle'):
-    '''Меняет состояние пользователя (то, что он должен отправить), чтобы правильно определить тип следующего сообщения'''
-    try:
-        with open(states_path, 'rb') as f:
-            states: dict = pickle.load(f)
-    except:
-        states = {}
-    
-    states[user_id] = new_state
-
-    with open(states_path, 'wb') as f:
-        pickle.dump(states, f)
-
-def get_tasks(user_id: int) -> list:
-    '''Возвращает список задач пользователя user_id'''
-    file_path = 'users/' + str(user_id) + '.pickle'
-    with open(file_path, 'rb') as f:
-        try:
-            return pickle.load(f)
-        except:
-            return []
-    
-def save_tasks(tasks: list, user_id: int):
-    '''Сохраняет список задач tasks пользователя user_id'''
-    file_path = 'users/' + str(user_id) + '.pickle'
-    with open(file_path, 'wb') as f:
-        pickle.dump(tasks, f)
-
-def task_list_to_str(tasks: list) -> str:
-    '''Возвращает строку, в которой каждая задача пронумерована и выполненные задачи вынесены отдельно'''
-    task_list = done_list = '\n'
-    i = 0
-    for task in tasks:
-        if task[1]:
-            # зачёркиваем каждую выполненную задачу с п-ю <s>...</s>
-            done_list += str(i) + ')✅ <s>' + task[0] + '</s>' + '\n'
-        else:
-            task_list += str(i) + ') ' + task[0] + '\n'
-        i += 1
-    
-    result = 'Сделанные:' + done_list + '\nОставшиеся:' + task_list
-
-    return result
-
-
+# ==== КОМАНДЫ START/HELP==== #
 
 @bot.message_handler(commands=['start'])
 def start_handler(message):
@@ -92,8 +28,10 @@ def start_handler(message):
 
 @bot.message_handler(commands=['help'])
 def help_handler(message):
-    bot.send_message(message.chat.id, 'Примеры команд (почти всё о боте https://github.com/Konabur/todohelpbot/blob/master/README.md):\n\n`/new_item {название_задачи}` -- добавить новую задачу\n\n`/all` -- посмотреть список задач в формате "`{номер}) {описание}`"\n\n`/delete {номер задачи}` -- удалить задачу с заданным номером.', parse_mode='markdown')
+    bot.send_message(message.chat.id, u'Команды (каждую команду можно вызвать без аргумента): \n\n/new\_item\n`/new_item {название_задачи}` -- добавить новую задачу\n\n/all\n`/all` -- посмотреть список задач в формате\n\n/show\_task\n`/show_task {номер задачи}` -- посмотреть задачу с её фото (или чем-то ещё)\n\n/delete\n`/delete {номер задачи}` -- удалить задачу с заданным номером (после этого все задачи с бОльшим номером опустятся)\n\n/done\n`/done {номер задачи}` -- сделать задачу выполненной\n\n/undone\n`/undone {номер задачи}` -- вернуть задачу (к невыполненным)\n\n/export\n`/export` -- получить .pickle файл с задачами (может быть полезным для следующей команды)\n\n/import\n`/import` -- ввести задачи из файла\n\n/state\n`/state` -- узнать, какая команда ожидает аргумент (idle значит нет ожидающей команды)\n\n/cancel\n`/cancel` -- убрать ожидание.', parse_mode='markdown')
 
+
+# ==== ДОБАВЛЕНИЕ НОВОЙ ЗАДАЧИ ==== #
 
 @bot.message_handler(commands=['new_item'], content_types=['audio', 'photo', 'voice', 'video', 'document', 'text', 'location', 'contact', 'sticker'])
 def new_item_handler(message):
@@ -101,7 +39,6 @@ def new_item_handler(message):
         task_name = message.text.replace('/new_item ', '')
     except:
         task_name = None
-    #print(message.text, '\n', task_name)
 
     if task_name == '/new_item':
         bot.send_message(message.chat.id, 'Как называется новая задача?')
@@ -129,6 +66,7 @@ def new_item_handler(message):
     bot.send_message(message.chat.id, 'Задача номер ' + str(n-1) + ' успешно добавлена!', parse_mode='html')
 
 
+# ==== ОТОБРАЖЕНИЕ ОДНОЙ ЗАДАЧИ ==== #
 
 @bot.message_handler(commands=['show_task'])
 def show_task_handler(message, replace=False, task_number=None, user_id=None):
@@ -183,11 +121,14 @@ def show_task_handler(message, replace=False, task_number=None, user_id=None):
     callback_button_previous = types.InlineKeyboardButton(text='<<', callback_data='show:'+str(prev_number)+message_id+chat_id+user_id)
     callback_button_done = types.InlineKeyboardButton(text='✅', callback_data='done:' + str(task_number)+message_id+chat_id+user_id)
     callback_button_link = types.InlineKeyboardButton(text='Показать сообщение', callback_data='reply:'+str(task[5])+chat_id+':.')
+    
     keyboard.row(callback_button_previous, callback_button_done, callback_button_next)
     keyboard.add(callback_button_link)
 
     bot.edit_message_reply_markup(showed_task.chat.id, showed_task.message_id, reply_markup=keyboard)
 
+
+# ==== ОБРАБОТКА НАЖАТИЙ НА КНОПКИ ==== #
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('show'))
 def show_callback_query_handler(call):
@@ -216,7 +157,8 @@ def reply_callback_query_handler(call):
     message_id, chat_id = int(message_id), int(chat_id)
     bot.send_message(chat_id, text, reply_to_message_id=message_id)
 
-    
+
+# ==== КОМАНДА ALL ==== #
 
 @bot.message_handler(commands=['all'])
 def show_all_handler(message):
@@ -224,7 +166,10 @@ def show_all_handler(message):
     tasks = get_tasks(message.from_user.id)
 
     bot.send_message(message.chat.id, task_list_to_str(tasks), parse_mode='html')
-    
+
+
+# ==== КОМАНДЫ ИЗМЕНЕНИЯ/УДАЛЕНИЯ ==== #
+
 @bot.message_handler(commands=['delete'])
 def delete_handler(message):
     '''Удалить задачу по номеру'''
@@ -236,7 +181,6 @@ def delete_handler(message):
         return
     
     task_number = int(task_number)
-
     
     tasks = get_tasks(message.from_user.id)
     try:
@@ -267,12 +211,12 @@ def done_handler(message):
     
     save_tasks(tasks, message.from_user.id)
     
-    bot.send_message(message.chat.id, 'Задача ```'+ tasks[task_number][0] + '``` успешно зачёркнута!', parse_mode='markdown')
+    bot.send_message(message.chat.id, 'Задача ``` '+ tasks[task_number][0] + '``` успешно зачёркнута!', parse_mode='markdown')
 
 
 @bot.message_handler(commands=['undone'])
 def undone_handler(message):
-    '''Вернуть задачу по номеру'''
+    '''Вернуть (к несделанным) задачу по номеру'''
     task_number = message.text.replace('/undone ', '')
 
     if task_number == '/undone':
@@ -284,10 +228,13 @@ def undone_handler(message):
     tasks = get_tasks(message.from_user.id)
     tasks[task_number][1] = False
     tasks[task_number][4] = None
+    save_tasks(tasks, message.from_user.id)
 
     
-    bot.send_message(message.chat.id, 'Задача ```'+ tasks[task_number][0] + '``` успешно возвращена!', parse_mode='markdown')
+    bot.send_message(message.chat.id, 'Задача ``` '+ tasks[task_number][0] + '``` успешно возвращена!', parse_mode='markdown')
 
+
+# ==== ЭКСПОРТ/ИМПОРТ ==== #
 
 @bot.message_handler(commands=['export'])
 def export_handler(message):
@@ -330,15 +277,7 @@ def import_handler(message):
         bot.send_message(message.chat.id, task_list_to_str(new_tasks), parse_mode='html')
         bot.send_message(message.chat.id, 'Добавить эти задачи к текущим?', reply_markup=keyboard)
 
-
-@bot.message_handler(commands=['state'])
-def check_my_state_handler(message):
-    bot.send_message(message.chat.id, get_user_state(message.from_user.id))
-
-@bot.message_handler(commands=['cancel'])
-def cancel_handler(message):
-    bot.send_message(message.from_user.id, 'Отменена команда ' + get_user_state(message.from_user.id, True))    
-
+# ==== ОБРАБОТКА КНОПОК ИМПОРТА ==== #
 
 @bot.callback_query_handler(func=lambda call: (type(call.data) == str and ('import_yes' in call.data or 'import_replace' in call.data)))
 def import_yes_replace_callback_query_handler(call):
@@ -373,36 +312,27 @@ def import_no_callback_query_handler(call):
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=types.InlineKeyboardMarkup())
     
 
+# ==== КОМАНДЫ СОСТОЯНИЯ ==== #
 
-#@bot.message_handler()
+@bot.message_handler(commands=['state'])
+def check_my_state_handler(message):
+    bot.send_message(message.chat.id, get_user_state(message.from_user.id))
+
+@bot.message_handler(commands=['cancel'])
+def cancel_handler(message):
+    bot.send_message(message.from_user.id, 'Отменена команда ' + get_user_state(message.from_user.id, True))    
+
+
+# ==== ФУНКЦИЯ ДЛЯ ОБРАБОТКИ "РВАННОГО" ВЫЗОВА КОМАНДЫ ==== #
+
 @bot.message_handler(func=lambda message: (get_user_state(message.from_user.id) != 'idle' and (message.text == None or '/' != message.text[0])), content_types=['audio', 'photo', 'voice', 'video', 'document', 'text', 'location', 'contact', 'sticker'])
 def command_part_handler(message):
-
+    '''Выполняет ожидающую аргумент команду после его получения (если он был отправлен отдельным сообщением)'''
     state = get_user_state(message.from_user.id, refresh=True)
     
-    # some handler will be pasted into the place of "eval" then message will be parsed by the desired function
     # какой-то обработчик вставится на место eval, затем сообщение обработается нужной функцией
-    
     eval(state + '_handler')(message)
-
-
-#@bot.message_handler(func=lambda message: True, content_types=['audio', 'photo', 'voice', 'video', 'document', 'text', 'location', 'contact', 'sticker'])
-def debug_message_handler(message):
-    '''отключённый режим'''
-    print(message)
-    
-
-
-@bot.inline_handler(func=lambda query: len(query.query) < 0)
-def inline_task_handler(query):
-    hint = "Подсказка <3"
-    r = types.InlineQueryResultArticle(
-        id='1', title='Добавить новую задачу', description=query.query,
-        input_message_content=types.InputTextMessageContent(message_text='/new_item ' + query.query)
-    )
-    bot.answer_inline_query(query.id, [r])
-
-
+   
 
 
 bot.polling(none_stop=True, interval=0, timeout=20)
