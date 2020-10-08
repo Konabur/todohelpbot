@@ -3,7 +3,8 @@ import telebot
 from telebot import types
 import datetime
 import os
-from my_functions import *
+from my_functions import get_user_state, change_user_state, get_tasks, save_tasks, task_list_to_str
+import pickle
 
 bot = telebot.TeleBot(TOKEN)
 emptyPhoto = 'https://image.prntscr.com/image/kC8tDU8nRkOnJNd5d-TRjw.png'
